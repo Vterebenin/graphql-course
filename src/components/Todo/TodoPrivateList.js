@@ -27,6 +27,8 @@ class TodoPrivateList extends Component {
 
     this.filterResults = this.filterResults.bind(this);
     this.clearCompleted = this.clearCompleted.bind(this);
+
+    this.client = props.client;
   }
 
   filterResults(filter) {
@@ -36,11 +38,29 @@ class TodoPrivateList extends Component {
     });
   }
 
-  clearCompleted() {}
+  clearCompleted() {
+    // Remove all the todos that are completed
+    const CLEAR_COMPLETED = gql`
+      mutation clearCompleted {
+        delete_todos(where: {is_completed: {_eq: true}, is_public: {_eq: false}}) {
+          affected_rows
+        }
+      }
+    `;
+    this.client.mutate({
+      mutation: CLEAR_COMPLETED,
+      optimisticResponse: {},
+      update: (cache, { data }) => {
+        const existingTodos = cache.readQuery({ query: GET_MY_TODOS });
+        const newTodos = existingTodos.todos.filter(t => (!t.is_completed));
+        cache.writeQuery({ query: GET_MY_TODOS, data: { todos: newTodos } });
+      }
+    });
+  }
 
   render() {
-    const {todos} = this.props;
-    
+    const { todos } = this.props;
+
     let filteredTodos = todos;
 
     if (this.state.filter === "active") {
@@ -64,7 +84,7 @@ class TodoPrivateList extends Component {
       <Fragment>
         <div className="todoListWrapper">
           <ul>
-            { todoList }
+            {todoList}
           </ul>
         </div>
 
@@ -83,7 +103,7 @@ class TodoPrivateList extends Component {
 const TodoPrivateListQuery = () => {
   return (
     <Query query={GET_MY_TODOS}>
-      {({ loading, error, data, client}) => {
+      {({ loading, error, data, client }) => {
         if (loading) {
           return (<div>Loading...</div>);
         }
@@ -95,7 +115,7 @@ const TodoPrivateListQuery = () => {
       }}
     </Query>
   );
- };
+};
 
 export default TodoPrivateListQuery;
-export {GET_MY_TODOS}
+export { GET_MY_TODOS }
